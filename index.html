@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Content Generator</title>
+    <script src="https://cdn.tailwindcss.com">
+// Clear research output when query is empty
+const researchQueryInput = document.getElementById('researchQuery');
+const researchOutputContainer = document.getElementById('researchOutputContainer');
+const researchOutput = document.getElementById('researchOutput');
+if (researchQueryInput && researchOutputContainer && researchOutput) {
+  researchQueryInput.addEventListener('input', () => {
+    if (!researchQueryInput.value.trim()) {
+      researchOutputContainer.classList.add('hidden');
+      researchOutput.value = '';
+    }
+  });
+}
+
+
+function sanitizeDashes(t) { return t ? t.replace(/[\u2013\u2014]/g, ', ') : t; }
+
+
+function showSpinner(on) {
+  const sp = document.getElementById('spinner');
+  if (!sp) return;
+  if (on) sp.classList.remove('hidden'); else sp.classList.add('hidden');
+}
+
+
+async function withSpinner(fn) {
+  const buttons = document.querySelectorAll('button');
+  buttons.forEach(b => b.disabled = true);
+  showSpinner(true);
+  try { return await fn(); }
+  finally {
+    showSpinner(false);
+    buttons.forEach(b => b.disabled = false);
+  }
+}
+
+</script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 p-4 flex flex-col items-center justify-center min-h-screen">
+
+    <div id="splashScreen" class="hidden fixed inset-0 bg-gray-100 dark:bg-gray-900 flex flex-col items-center justify-center p-8 z-40">
+        <div class="max-w-md text-center">
+            <h1 class="text-4xl font-bold mb-4">Ryan PHC GPT</h1>
+            <p class="text-lg text-gray-600 dark:text-gray-400 mb-8">Ryan PHC GPT is a custom AI assistant designed to help PHC managers quickly write professional emails, text messages, and statement of service emails with clarity and consistency.</p>
+            <button id="continueBtn" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-transform transform hover:scale-105">
+                Continue to App
+            </button>
+        </div>
+    </div>
+
+    <div id="setupModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div class="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-md">
+            <h2 class="text-2xl font-bold text-center mb-4 text-gray-900 dark:text-white">Welcome, Team!</h2>
+            <p class="text-center text-gray-600 dark:text-gray-400 mb-6">Let's get you set up. This info will be saved on your device for future use.</p>
+            <div class="space-y-4">
+                <div>
+                    <label for="setupName" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Your Name</label>
+                    <input type="text" id="setupName" placeholder="e.g., Jane Doe" class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 p-2">
+                </div>
+                <div>
+                    <label for="setupEmail" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Work Email</label>
+                    <input type="email" id="setupEmail" placeholder="e.g., jane@ryan.com" class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 p-2">
+                </div>
+                <div>
+                    <label for="setupPhone" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Work Phone</label>
+                    <input type="tel" id="setupPhone" placeholder="e.g., (555) 555-5555" class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 p-2">
+                </div>
+            </div>
+            <button id="saveInfoBtn" class="mt-6 w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-transform transform hover:scale-105">
+                Save & Continue
+            </button>
+        </div>
+    </div>
+
+    <main id="mainContent" class="hidden w-full max-w-2xl bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-200 dark:border-gray-700">
+        <h1 class="text-3xl font-bold text-center mb-2 text-gray-900 dark:text-white">Content Generator</h1>
+        <p class="text-center text-gray-600 dark:text-gray-400 mb-8">Select a document type and fill out the form to generate custom content.</p>
+
+        <div class="mb-6">
+            <label for="docType" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Document Type:</label>
+            <select id="docType" class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out p-3">
+                <option value="clientEmail">Client Email</option>
+                <option value="statement">Statement of Service</option>
+                <option value="textMessage">Text Message</option>
+            </select>
+        </div>
+
+        <div id="formFields" class="space-y-4">
+            </div>
+
+        <div class="mt-8 flex justify-center">
+            <button id="aiGenerateBtn" class="w-full sm:w-auto px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-md transition-transform transform hover:scale-105">
+                Generate with AI
+            </button>
+        </div>
+
+        <div class="mt-8">
+            <label for="output" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Generated Content:</label>
+            <textarea id="output" rows="10" readonly class="w-full p-4 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white resize-none focus:outline-none"></textarea>
+            <button id="copyBtn" class="w-full mt-4 px-6 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold rounded-lg shadow-md transition-transform transform hover:scale-105">
+                Copy to Clipboard
+            </button>
+        </div>
+
+        <div class="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700">
+            <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Revise & Refine</h2>
+            <div class="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4 items-end">
+                <div class="flex-grow w-full">
+                    <label for="revisionQuery" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Enter Revision Instructions:</label>
+                    <input type="text" id="revisionQuery" placeholder="e.g., Make this more concise" class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 p-3">
+                </div>
+                <button id="revisionBtn" class="w-full sm:w-auto px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md transition-transform transform hover:scale-105">
+                    Revise with AI
+                </button>
+            </div>
+        </div>
+        
+        <div class="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700">
+            <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Need more info?</h2>
+            <div class="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4 items-end">
+                <div class="flex-grow w-full">
+                    <label for="researchQuery" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ask the AI a question or for creative content:</label>
+                    <input type="text" id="researchQuery" placeholder="e.g., What are the standard payment terms? or tell me a joke about arborists" class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 p-3">
+                </div>
+                <button id="researchBtn" class="w-full sm:w-auto px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg shadow-md transition-transform transform hover:scale-105">
+                    Get Additional Info
+                </button>
+            </div>
+            <div id="researchOutputContainer" class="hidden">
+                 <textarea id="researchOutput" rows="6" readonly class="w-full p-4 rounded-lg bg-gray-200 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white resize-none mt-4"></textarea>
+                 <button id="copyResearchToDraftBtn" class="w-full mt-2 px-6 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold rounded-lg shadow-md transition-transform transform hover:scale-105">
+                     Copy Research to Draft
+                 </button>
+            </div>
+        </div>
+
+        <div class="mt-4 text-center">
+            <button id="resetInfoBtn" class="text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200 transition-colors">
+                Reset User Info
+            </button>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Get references to all relevant DOM elements
+            const docTypeSelect = document.getElementById('docType');
+            const formFieldsDiv = document.getElementById('formFields');
+            const aiGenerateBtn = document.getElementById('aiGenerateBtn');
+            const outputTextarea = document.getElementById('output');
+            const copyBtn = document.getElementById('copyBtn');
+            const setupModal = document.getElementById('setupModal');
+            const saveInfoBtn = document.getElementById('saveInfoBtn');
+            const resetInfoBtn = document.getElementById('resetInfoBtn');
+            const researchBtn = document.getElementById('researchBtn');
+            const researchQueryInput = document.getElementById('researchQuery');
+            const revisionBtn = document.getElementById('revisionBtn');
+            const revisionQueryInput = document.getElementById('revisionQuery');
+            const splashScreen = document.getElementById('splashScreen');
+            const mainContent = document.getElementById('mainContent');
+            const continueBtn = document.getElementById('continueBtn');
+            const researchOutput = document.getElementById('researchOutput');
+            const researchOutputContainer = document.getElementById('researchOutputContainer');
+            const copyResearchToDraftBtn = document.getElementById('copyResearchToDraftBtn');
+
+
+            // Global variables to store user info from local storage
+            let userName = localStorage.getItem('userName') || '';
+            let userEmail = localStorage.getItem('userEmail') || '';
+            let userPhone = localStorage.getItem('userPhone') || '';
+
+            // System prompt for the arborist persona and writing style
+            const arboristPersonaPrompt = `You are a helpful and professional arborist assistant for Ryan Lawn & Tree. Your main purpose is to draft clear, warm, and friendly communications for clients that are also professional and approachable. You are a subject matter expert in arboriculture.
+
+When communicating, always be respectful and use a natural, conversational tone. Your writing should be direct and assertive, avoiding jargon, corporate buzzwords, and hedge words like 'quite,' 'rather,' or 'somewhat.'
+
+Always follow these formatting and style rules:
+* Do not use em or en dashes; use commas or periods instead.
+* Only capitalize proper nouns. Do not capitalize job titles, seasons, departments, or subjects.
+* Avoid generic introductions and conclusions. Start and end with impact and energy.
+
+Your goal is to be a reliable and versatile tool for the user. When asked for information outside of a standard communication draft (e.g., a creative request or a general question), you should be able to respond appropriately and factually without compromising your core professional identity.`;
+
+
+            // Default opening note for Statement of Service
+            const sosOpeningNote = "Please note: After each service, you will receive two separate communications. One will include a summary of the work completed, and the other will be your invoice. These may arrive at different times. The invoice usually follows about 24 hours later. If you do not receive it within two business days, please feel free to call us at 913-381-1505. You can also check your account and service history anytime through the online portal on our website.";
+
+            // New note about treatment for Statement of Service
+            const sosTreatmentNote = "The treatment we applied needs about 15 to 20 minutes to fully absorb into the plants. After that, it's completely rainproof and safe for your family and pets to enjoy the yard.";
+
+
+            // Define the fields for each document type
+            const templates = {
+                clientEmail: {
+                    title: "Generate a Client Email",
+                    fields: [
+                        { id: "originalMessage", label: "Paste Client's Email Here (Optional)", type: "textarea", rows: 3, placeholder: "Paste the full client email here..." },
+                        { id: "subject", label: "Subject Line", type: "text", placeholder: "e.g., Project Update" },
+                        { id: "body", label: "Key Points for Reply", type: "textarea", rows: 6, placeholder: "Enter key points to include in your reply..." }
+                    ]
+                },
+                statement: {
+                    title: "Generate a Statement of Service",
+                    fields: [
+                        { id: "serviceDescription", label: "What service summary points would you like to include? (e.g., treatments applied, plants serviced, pests/diseases targeted, visual observations).", type: "textarea", rows: 6, placeholder: "" },
+                        { id: "optionalNotes", label: "Optional notes/Seasonal intro:", type: "textarea", rows: 3, placeholder: "Do you want to add a seasonal intro or any extra notes?" },
+                        { id: "includeTreatmentNote", label: "Include treatment note (15-20 min absorption)", type: "checkbox" },
+                        { id: "dateCompleted", label: "Date Completed", type: "date" }
+                    ]
+                },
+                textMessage: {
+                    title: "Generate a Text Message",
+                    fields: [
+                        { id: "originalMessage", label: "Paste Client's Text Here (Optional)", type: "textarea", rows: 3, placeholder: "Paste the client's text message here..." },
+                        { id: "messageBody", label: "Key Points for Reply", type: "textarea", rows: 6, placeholder: "Enter key points to include in your reply..." }
+                    ]
+                }
+            };
+
+            // Function to proofread and clean input for em and en dashes
+            const cleanInput = (text) => {
+                // Replace em dashes (—) and en dashes (–) with a comma and a space
+                return text.replace(/[\u2013\u2014]/g, ', ');
+            };
+
+            // Function to render the dynamic form based on the selected document type
+            const renderForm = (type) => {
+                formFieldsDiv.innerHTML = ''; // Clear previous fields
+                const template = templates[type];
+                if (!template) return;
+
+                const formTitle = document.createElement('h2');
+                formTitle.className = "text-xl font-semibold mb-4 text-gray-900 dark:text-white";
+                formTitle.textContent = template.title;
+                formFieldsDiv.appendChild(formTitle);
+
+                template.fields.forEach(field => {
+                    const div = document.createElement('div');
+                    div.className = 'mt-4';
+                    
+                    if (field.type === 'checkbox') {
+                        div.className = 'flex items-center mt-4';
+                        div.innerHTML = `
+                            <input type="checkbox" id="${field.id}" class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded" checked>
+                            <label for="${field.id}" class="ml-2 block text-sm font-medium text-gray-700 dark:text-gray-300">${field.label}</label>
+                        `;
+                    } else {
+                        div.innerHTML = `
+                            <label for="${field.id}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">${field.label}</label>
+                            ${field.type === 'textarea' ?
+                                `<textarea id="${field.id}" rows="${field.rows}" placeholder="${field.placeholder}" class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 p-3"></textarea>` :
+                                `<input type="${field.type}" id="${field.id}" placeholder="${field.placeholder}" class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 p-3">`
+                            }
+                        `;
+                    }
+                    formFieldsDiv.appendChild(div);
+                });
+
+                if (type === 'clientEmail') {
+                    const subjectField = document.getElementById('subject');
+                    const subjectLabel = subjectField.previousElementSibling;
+                    const subjectContainer = subjectField.parentElement;
+
+                    // Hide subject field and its label initially
+                    subjectField.style.display = 'none';
+                    subjectLabel.style.display = 'none';
+
+                    const checkboxDiv = document.createElement('div');
+                    checkboxDiv.className = 'flex items-center mt-2';
+                    checkboxDiv.innerHTML = `
+                        <input type="checkbox" id="generateSubjectWithAI" class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
+                        <label for="generateSubjectWithAI" class="ml-2 block text-sm text-gray-900 dark:text-gray-200">Generate subject with AI</label>
+                    `;
+                    // Insert checkbox after the (now hidden) subject field
+                    subjectContainer.insertBefore(checkboxDiv, subjectField.nextSibling);
+
+                    const checkbox = checkboxDiv.querySelector('#generateSubjectWithAI');
+                    checkbox.addEventListener('change', (e) => {
+                        if (e.target.checked) {
+                            subjectField.style.display = 'block';
+                            subjectLabel.style.display = 'block';
+                        } else {
+                            subjectField.style.display = 'none';
+                            subjectLabel.style.display = 'none';
+                        }
+                    });
+                }
+            };
+
+            const generateContent = (docType, aiBody, aiSubject) => {
+                let content = '';
+                const senderName = userName || '[Your Name]';
+                const senderEmail = userEmail || '[Your Email]';
+                const senderPhone = userPhone || '[Your Phone]';
+                const originalMessageField = document.getElementById('originalMessage');
+                const originalMessage = originalMessageField ? originalMessageField.value : '';
+
+                if (docType === 'clientEmail') {
+                    const subject = aiSubject || document.getElementById('subject').value || '';
+                    const body = aiBody || document.getElementById('body').value || '';
+                    content = `${subject.trim() ? `Subject: ${subject}\n\n` : ''}${body}`;
+                } else if (docType === 'statement') {
+                    const clientNamePlaceholder = '[Client Name]';
+                    const serviceDescription = aiBody || document.getElementById('serviceDescription').value || '';
+                    const dateCompleted = document.getElementById('dateCompleted').value || new Date().toISOString().split('T')[0];
+                    const optionalNotes = document.getElementById('optionalNotes').value || '';
+                    const currentDate = new Date().toISOString().split('T')[0];
+
+                    let finalBody = serviceDescription;
+                    if (optionalNotes.trim()) {
+                        finalBody = optionalNotes + '\n\n' + finalBody;
+                    }
+                    if (document.getElementById('includeTreatmentNote') && document.getElementById('includeTreatmentNote').checked) {
+                         finalBody += '\n\n' + sosTreatmentNote;
+                    }
+                    finalBody = sosOpeningNote + '\n\n' + finalBody;
+                    finalBody += '\n\nPlants treated: OOOOOOOOOOOOOOO';
+                    
+                    content = `STATEMENT OF SERVICE\n\nTo: ${clientNamePlaceholder}\nDate: ${currentDate}\n\n${finalBody}\nDate of Completion: ${dateCompleted}`;
+                } else if (docType === 'textMessage') {
+                    const messageBody = aiBody || document.getElementById('messageBody').value || '';
+                    content = `Hi, this is ${senderName} from Ryan Lawn & Tree.
+
+${messageBody}
+
+Feel free to reach out to me directly by text or at ${senderEmail}.
+
+--- Original Message ---
+${originalMessage}`;
+                }
+                \1 sanitizeDashes(\3);
+            };
+
+            const generateAIContent = async () => {
+                const docType = docTypeSelect.value;
+                const pointsId = docType === 'clientEmail' ? 'body' : (docType === 'statement' ? 'serviceDescription' : 'messageBody');
+                const points = document.getElementById(pointsId).value;
+                const originalMessageField = document.getElementById('originalMessage');
+                const originalMessage = originalMessageField ? originalMessageField.value : '';
+
+                if (!points.trim()) {
+                    alert('Please enter a few points to include in your message.');
+                    return;
+                }
+
+                const cleanedPoints = cleanInput(points);
+                const cleanedOriginalMessage = originalMessage ? cleanInput(originalMessage) : '';
+
+                \1 sanitizeDashes(\3);
+
+                let bodyText = '';
+                let subjectText = '';
+                
+                try {
+                    const rawBodyPrompt = `Draft a message based on the following points: "${cleanedPoints}"`;
+                    const rawBodyResponse = await fetchGeminiContent(rawBodyPrompt, false);
+
+                    const finalBodyPrompt = `Take the following raw draft and rewrite it to adhere to the arborist persona and writing style rules. Incorporate any additional context if provided:\n\nRaw Draft: "${rawBodyResponse}"\n\nOriginal Client Message: "${cleanedOriginalMessage}"`;
+                    const finalBodyResponse = await fetchGeminiContent(finalBodyPrompt, true);
+                    bodyText = finalBodyResponse;
+
+                    if (docType === 'clientEmail' && (document.getElementById('generateSubjectWithAI') && document.getElementById('generateSubjectWithAI').checked)) {
+                        \1 sanitizeDashes(\3);
+                        const subjectPrompt = `Generate a concise and professional email subject line for an email with the following key points: ${cleanedPoints}`;
+                        const subjectResponse = await fetchGeminiContent(subjectPrompt, true);
+                        subjectText = subjectResponse;
+                        document.getElementById('subject').value = subjectText;
+                    }
+                    
+                    generateContent(docType, bodyText, subjectText);
+                } catch (error) {
+                    console.error('AI generation failed:', error);
+                    \1 sanitizeDashes(\3);
+                }
+            };
+            
+            const performResearch = async () => {
+                const query = researchQueryInput.value;
+                if (!query.trim()) {
+                    alert('Please enter a question to get additional information.');
+                    return;
+                }
+
+                researchOutputContainer.classList.remove('hidden');
+                researchOutput.value = 'Searching for additional information...';
+
+                try {
+                    const researchResponse = await fetchGeminiContent(query, false);
+                    researchOutput.value = researchResponse;
+                } catch (error) {
+                    console.error('AI research failed:', error);
+                    researchOutput.value = 'Error getting additional information. Please try again.';
+                }
+            };
+
+            const performRevision = async () => {
+                const currentText = outputTextarea.value;
+                const revisionInstructions = revisionQueryInput.value;
+
+                if (!currentText.trim()) {
+                    alert('There is no content to revise. Please generate a draft first.');
+                    return;
+                }
+                if (!revisionInstructions.trim()) {
+                    alert('Please enter your revision instructions.');
+                    return;
+                }
+                
+                const revisionPrompt = `Revise the following text based on these instructions:\n\nText to revise: "${currentText}"\n\nInstructions: "${revisionInstructions}"`;
+
+                \1 sanitizeDashes(\3);
+
+                try {
+                    const revisedText = await fetchGeminiContent(revisionPrompt, true);
+                    \1 sanitizeDashes(\3);
+                } catch (error) {
+                    console.error('AI revision failed:', error);
+                    \1 sanitizeDashes(\3);
+                }
+            };
+
+            const copyResearchToDraft = () => {
+                const researchText = researchOutput.value;
+                const currentDraft = outputTextarea.value;
+                if (!researchText.trim() || researchText.startsWith('Error') || researchText.startsWith('Searching')) {
+                    alert('No valid research result to copy. Please generate research first.');
+                    return;
+                }
+
+                const updatedContent = `${currentDraft}\n\n--- AI Research Result ---\n\n${researchText}\n\n--- End of Result ---`;
+                \1 sanitizeDashes(\3);
+            };
+            
+            const fetchGeminiContent = async (prompt, usePersona) => {
+                const chatHistory = usePersona ? [
+                    {
+                        role: "user",
+                        parts: [{ text: arboristPersonaPrompt }]
+                    },
+                    {
+                        role: "model",
+                        parts: [{ text: "Understood. I am ready to assist as a professional arborist assistant for Ryan Lawn & Tree."}]
+                    },
+                    {
+                        role: "user",
+                        parts: [{ text: prompt }]
+                    }
+                ] : [
+                    {
+                        role: "user",
+                        parts: [{ text: prompt }]
+                    }
+                ];
+
+                const payload = { contents: chatHistory };
+                const apiUrl = "/.netlify/functions/generate"; // THIS IS THE CORRECTED LINE
+
+                let retryCount = 0;
+                const maxRetries = 5;
+                const baseDelay = 1000;
+
+                while (retryCount < maxRetries) {
+                    try {
+                        const response = await withSpinner(() => fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (response.status === 429) {
+                            const delay = baseDelay * Math.pow(2, retryCount) + Math.random() * 1000;
+                            retryCount++;
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            continue;
+                        }
+
+                        if (!response.ok) {
+                            throw new Error(`API response error: ${response.statusText}`);
+                        }
+
+                        const result = await response.json();
+                        if (result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
+                            return result.candidates[0].content.parts[0].text;
+                        } else {
+                            console.error("Invalid response structure from API:", result);
+                            // Check for safety ratings or other block reasons
+                            if (result.candidates && result.candidates.length > 0 && result.candidates[0].finishReason) {
+                                return `Content generation failed. Reason: ${result.candidates[0].finishReason}`;
+                            }
+                            throw new Error('No content returned from API.');
+                        }
+                    } catch (error) {
+                        console.error('API call failed:', error);
+                        if (retryCount >= maxRetries - 1) {
+                           throw error;
+                        }
+                        retryCount++;
+                    }
+                }
+                throw new Error('Maximum retries reached.');
+            };
+
+            const copyContent = () => {
+                outputTextarea.select();
+                try {
+                    document.execCommand('copy');
+                    alert('Content copied to clipboard!');
+                } catch (err) {
+                    console.error('Failed to copy text: ', err);
+                }
+            };
+            
+            const initializeApp = () => {
+                const hasSeenSplash = localStorage.getItem('splashScreenSeen');
+                if (!hasSeenSplash) {
+                    splashScreen.classList.remove('hidden');
+                    mainContent.classList.add('hidden');
+                    continueBtn.addEventListener('click', () => {
+                        splashScreen.classList.add('hidden');
+                        mainContent.classList.remove('hidden');
+                        localStorage.setItem('splashScreenSeen', 'true');
+                        if (!userName || !userEmail || !userPhone) {
+                            showSetupModal();
+                        }
+                    }, { once: true });
+                } else {
+                    splashScreen.classList.add('hidden');
+                    mainContent.classList.remove('hidden');
+                    if (!userName || !userEmail || !userPhone) {
+                        showSetupModal();
+                    }
+                }
+
+                renderForm(docTypeSelect.value);
+            };
+
+            const showSetupModal = () => {
+                setupModal.classList.remove('hidden');
+            };
+
+            const hideSetupModal = () => {
+                setupModal.classList.add('hidden');
+            };
+
+            saveInfoBtn.addEventListener('click', () => {
+                userName = document.getElementById('setupName').value;
+                userEmail = document.getElementById('setupEmail').value;
+                userPhone = document.getElementById('setupPhone').value;
+
+                if (userName && userEmail && userPhone) {
+                    localStorage.setItem('userName', userName);
+                    localStorage.setItem('userEmail', userEmail);
+                    localStorage.setItem('userPhone', userPhone);
+                    hideSetupModal();
+                } else {
+                    alert('Please fill out all fields.');
+                }
+            });
+
+            resetInfoBtn.addEventListener('click', () => {
+                localStorage.removeItem('userName');
+                localStorage.removeItem('userEmail');
+                localStorage.removeItem('userPhone');
+                localStorage.removeItem('splashScreenSeen');
+                alert('User information has been reset.');
+                userName = '';
+                userEmail = '';
+                userPhone = '';
+                // Reload the page to re-trigger the setup flow
+                window.location.reload();
+            });
+
+            docTypeSelect.addEventListener('change', (e) => renderForm(e.target.value));
+            aiGenerateBtn.addEventListener('click', generateAIContent);
+            revisionBtn.addEventListener('click', performRevision);
+            researchBtn.addEventListener('click', performResearch);
+            copyBtn.addEventListener('click', copyContent);
+            copyResearchToDraftBtn.addEventListener('click', copyResearchToDraft);
+
+            initializeApp();
+        });
+    
+// Clear research output when query is empty
+const researchQueryInput = document.getElementById('researchQuery');
+const researchOutputContainer = document.getElementById('researchOutputContainer');
+const researchOutput = document.getElementById('researchOutput');
+if (researchQueryInput && researchOutputContainer && researchOutput) {
+  researchQueryInput.addEventListener('input', () => {
+    if (!researchQueryInput.value.trim()) {
+      researchOutputContainer.classList.add('hidden');
+      researchOutput.value = '';
+    }
+  });
+}
+
+
+function sanitizeDashes(t) { return t ? t.replace(/[\u2013\u2014]/g, ', ') : t; }
+
+
+function showSpinner(on) {
+  const sp = document.getElementById('spinner');
+  if (!sp) return;
+  if (on) sp.classList.remove('hidden'); else sp.classList.add('hidden');
+}
+
+
+async function withSpinner(fn) {
+  const buttons = document.querySelectorAll('button');
+  buttons.forEach(b => b.disabled = true);
+  showSpinner(true);
+  try { return await fn(); }
+  finally {
+    showSpinner(false);
+    buttons.forEach(b => b.disabled = false);
+  }
+}
+
+</script>
+<div id="spinner" class="hidden">Working, please wait...</div>
+</body>
+</html>
