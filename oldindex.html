@@ -4,11 +4,44 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Custom Content Generator</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-<script>
+    <script src="https://cdn.tailwindcss.com">
+// Clear research output when query is empty
+const researchQueryInput = document.getElementById('researchQuery');
+const researchOutputContainer = document.getElementById('researchOutputContainer');
+const researchOutput = document.getElementById('researchOutput');
+if (researchQueryInput && researchOutputContainer && researchOutput) {
+  researchQueryInput.addEventListener('input', () => {
+    if (!researchQueryInput.value.trim()) {
+      researchOutputContainer.classList.add('hidden');
+      researchOutput.value = '';
+    }
+  });
+}
+
+
+function sanitizeDashes(t) { return t ? t.replace(/[\u2013\u2014]/g, ', ') : t; }
+
+
+function showSpinner(on) {
+  const sp = document.getElementById('spinner');
+  if (!sp) return;
+  if (on) sp.classList.remove('hidden'); else sp.classList.add('hidden');
+}
+
+
+async function withSpinner(fn) {
+  const buttons = document.querySelectorAll('button');
+  buttons.forEach(b => b.disabled = true);
+  showSpinner(true);
+  try { return await fn(); }
+  finally {
+    showSpinner(false);
+    buttons.forEach(b => b.disabled = false);
+  }
+}
 
 </script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -293,7 +326,7 @@ Your goal is to be a reliable and versatile tool for the user. When asked for in
                          finalBody += '\n\n' + sosTreatmentNote;
                     }
                     finalBody = sosOpeningNote + '\n\n' + finalBody;
-                    finalBody += '\n\n**Plants Treated:** OOOOOOOOOOOOOOO';
+                    finalBody += '\n\nPlants treated: OOOOOOOOOOOOOOO';
                     
                     content = `STATEMENT OF SERVICE\n\nTo: ${clientNamePlaceholder}\nDate: ${currentDate}\n\n${finalBody}\nDate of Completion: ${dateCompleted}`;
                 } else if (docType === 'textMessage') {
@@ -307,8 +340,7 @@ Feel free to reach out to me directly by text or at ${senderEmail}.
 --- Original Message ---
 ${originalMessage}`;
                 }
-                outputTextarea.value = content;
-                document.getElementById('output').value = sanitizeDashes(content);
+                \1 sanitizeDashes(\3);
             };
 
             const generateAIContent = async () => {
@@ -326,7 +358,7 @@ ${originalMessage}`;
                 const cleanedPoints = cleanInput(points);
                 const cleanedOriginalMessage = originalMessage ? cleanInput(originalMessage) : '';
 
-                outputTextarea.value = 'Generating draft... Please wait.';
+                \1 sanitizeDashes(\3);
 
                 let bodyText = '';
                 let subjectText = '';
@@ -339,8 +371,8 @@ ${originalMessage}`;
                     const finalBodyResponse = await fetchGeminiContent(finalBodyPrompt, true);
                     bodyText = finalBodyResponse;
 
-                    if (docType === 'clientEmail' && document.getElementById('generateSubjectWithAI').checked) {
-                        outputTextarea.value = 'Generating subject line... Please wait.';
+                    if (docType === 'clientEmail' && (document.getElementById('generateSubjectWithAI') && document.getElementById('generateSubjectWithAI').checked)) {
+                        \1 sanitizeDashes(\3);
                         const subjectPrompt = `Generate a concise and professional email subject line for an email with the following key points: ${cleanedPoints}`;
                         const subjectResponse = await fetchGeminiContent(subjectPrompt, true);
                         subjectText = subjectResponse;
@@ -350,7 +382,7 @@ ${originalMessage}`;
                     generateContent(docType, bodyText, subjectText);
                 } catch (error) {
                     console.error('AI generation failed:', error);
-                    outputTextarea.value = 'Error generating content. Please try again.';
+                    \1 sanitizeDashes(\3);
                 }
             };
             
@@ -388,14 +420,14 @@ ${originalMessage}`;
                 
                 const revisionPrompt = `Revise the following text based on these instructions:\n\nText to revise: "${currentText}"\n\nInstructions: "${revisionInstructions}"`;
 
-                outputTextarea.value = 'Revising text... Please wait.';
+                \1 sanitizeDashes(\3);
 
                 try {
                     const revisedText = await fetchGeminiContent(revisionPrompt, true);
-                    outputTextarea.value = revisedText;
+                    \1 sanitizeDashes(\3);
                 } catch (error) {
                     console.error('AI revision failed:', error);
-                    outputTextarea.value = 'Error revising content. Please try again.';
+                    \1 sanitizeDashes(\3);
                 }
             };
 
@@ -408,7 +440,7 @@ ${originalMessage}`;
                 }
 
                 const updatedContent = `${currentDraft}\n\n--- AI Research Result ---\n\n${researchText}\n\n--- End of Result ---`;
-                outputTextarea.value = updatedContent;
+                \1 sanitizeDashes(\3);
             };
             
             const fetchGeminiContent = async (prompt, usePersona) => {
@@ -441,7 +473,7 @@ ${originalMessage}`;
 
                 while (retryCount < maxRetries) {
                     try {
-                        const response = await fetch(apiUrl, {
+                        const response = await withSpinner(() => fetch(apiUrl, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
@@ -480,17 +512,15 @@ ${originalMessage}`;
                 throw new Error('Maximum retries reached.');
             };
 
-            const copyContent = async () => {
-  const outputTextarea = document.getElementById('output');
-  try {
-    await navigator.clipboard.writeText(outputTextarea.value);
-    alert('Content copied to clipboard!');
-  } catch (e) {
-    outputTextarea.select();
-    const ok = document.execCommand('copy');
-    alert(ok ? 'Content copied to clipboard!' : 'Copy failed. Select and copy manually.');
-  }
-};
+            const copyContent = () => {
+                outputTextarea.select();
+                try {
+                    document.execCommand('copy');
+                    alert('Content copied to clipboard!');
+                } catch (err) {
+                    console.error('Failed to copy text: ', err);
+                }
+            };
             
             const initializeApp = () => {
                 const hasSeenSplash = localStorage.getItem('splashScreenSeen');
@@ -561,7 +591,43 @@ ${originalMessage}`;
 
             initializeApp();
         });
-    </script>
+    
+// Clear research output when query is empty
+const researchQueryInput = document.getElementById('researchQuery');
+const researchOutputContainer = document.getElementById('researchOutputContainer');
+const researchOutput = document.getElementById('researchOutput');
+if (researchQueryInput && researchOutputContainer && researchOutput) {
+  researchQueryInput.addEventListener('input', () => {
+    if (!researchQueryInput.value.trim()) {
+      researchOutputContainer.classList.add('hidden');
+      researchOutput.value = '';
+    }
+  });
+}
+
+
+function sanitizeDashes(t) { return t ? t.replace(/[\u2013\u2014]/g, ', ') : t; }
+
+
+function showSpinner(on) {
+  const sp = document.getElementById('spinner');
+  if (!sp) return;
+  if (on) sp.classList.remove('hidden'); else sp.classList.add('hidden');
+}
+
+
+async function withSpinner(fn) {
+  const buttons = document.querySelectorAll('button');
+  buttons.forEach(b => b.disabled = true);
+  showSpinner(true);
+  try { return await fn(); }
+  finally {
+    showSpinner(false);
+    buttons.forEach(b => b.disabled = false);
+  }
+}
+
+</script>
 <div id="spinner" class="hidden">Working, please wait...</div>
 </body>
 </html>
